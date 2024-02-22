@@ -1,10 +1,9 @@
-from langchain_community.vectorstores.faiss import FAISS
-from typing import Union, Dict, List, Optional, Any
+from langchain_community.vectorstores.chroma import Chroma
+from typing import Union, List
 from langchain.embeddings import HuggingFaceEmbeddings
 from langchain_core.documents import Document
 from file import extract
-from langchain.text_splitter import CharacterTextSplitter
-from langchain_community.document_loaders import DirectoryLoader, TextLoader
+from langchain_community.document_loaders import TextLoader
 
 
 # 常量
@@ -12,29 +11,28 @@ DEFAULT_K = 4
 
 
 class FaissDB:
-    def __init__(self, splitter, similarity_top_k: int = 20) -> None:
-        self.similarity_top_k = similarity_top_k
+    def __init__(
+        self, 
+        splitter, 
+        model_name: str = "BAAI/bge-base-en-v1.5", 
+        device: str = "cpu",
+        similarity_top_k: int = 20,
+        normalize_embeddings: bool = True,
+    ) -> None:
+
+        self._similarity_top_k = similarity_top_k
 
         # embedding function
-        self.embedding_function = self.get_embedding_function()
-        self.splitter = splitter
-        self.db = None
+        self._embedding_function = self._get_embedding_function(model_name, device, normalize_embeddings)
+        self._splitter = splitter
+        self._db = None
 
-    # TODO 将model选择与device进行定制化
-    def get_embedding_function(self) -> HuggingFaceEmbeddings:
-        # Embedding Model
-        modelPath = "BAAI/bge-base-en-v1.5"
 
-        # Create a dictionary with model configuration options, specifying to use the CPU for computations
-        # model_kwargs = {'device':'cpu'}
-        model_kwargs = {"device": "mps"}
-
-        # Create a dictionary with encoding options, specifically setting 'normalize_embeddings' to False
-        encode_kwargs = {"normalize_embeddings": True}
-
-        # Initialize an instance of HuggingFaceEmbeddings with the specified parameters
+    def _get_embedding_function(self, model_name, device, normalize_embeddings) -> HuggingFaceEmbeddings:
+        model_kwargs = {"device": device}
+        encode_kwargs = {"normalize_embeddings": normalize_embeddings}
         embeddings = HuggingFaceEmbeddings(
-            model_name=modelPath,  # Provide the pre-trained model's path
+            model_name=model_name,  # Provide the pre-trained model's path
             model_kwargs=model_kwargs,  # Pass the model configuration options
             encode_kwargs=encode_kwargs,  # Pass the encoding options
         )
@@ -46,9 +44,8 @@ class FaissDB:
         # TODO 此处需要补充“文件类型适配层”，方便适配不同文件的加载
         loader = TextLoader(file_path)
         documents = loader.load()
-        splitter = CharacterTextSplitter(chunk_size=500, chunk_overlap=50)
-        documents = splitter.split_documents(documents)
-        self.db = FAISS.from_documents(documents, self.embedding_function)
+        documents = self._splitter.split_documents(documents)
+        self._db = Chroma.from_documents(documents, self._embedding_function)
 
 
     # TODO 不清楚是否删除
@@ -57,12 +54,12 @@ class FaissDB:
         # if isinstance(files, str):
         #     files = [files]
 
-        self.db.add_texts(data)
+        self._db.add_texts(data)
 
         # 解析文档
         # for doc_file in files:
         #     chunks = self._chunk_files(doc_file)
-        #     self.db.add_texts(chunks)
+        #     self._db.add_texts(chunks)
 
     # TODO 不清楚是否删除
     def _chunk_files(self, doc_file: str) -> str:
@@ -76,12 +73,12 @@ class FaissDB:
             corpus = extract.from_txt(doc_file)
 
         full_text = "\n".join(corpus)
-        chunks = self.splitter.split_text(full_text)
+        chunks = self._splitter.split_text(full_text)
 
         return chunks
 
     def get_retriever(self):
-        return self.db.as_retriever(search_kwargs={"k": self.similarity_top_k})
+        return self._db.as_retriever(search_kwargs={"k": self._similarity_top_k})
 
     def similarity_search(self, query: str) -> List[Document]:
-        return self.db.similarity_search(query, self.similarity_top_k)
+        return self._db.similarity_search(query, self._similarity_top_k)

@@ -4,20 +4,12 @@ class ChatPDF
 
 import torch
 from loguru import logger
-from splitter.LangchainSplitter import LangchainSplitter
 from vectordb.chroma import FaissDB
 from langchain_community.llms import Ollama
 from typing import List, Union
-from langchain.retrievers.document_compressors.flashrank_rerank import FlashrankRerank
-from langchain.retrievers import ContextualCompressionRetriever
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
-from langchain_community.vectorstores.faiss import FAISS
-from langchain_community.vectorstores.chroma import Chroma
 from langchain.text_splitter import CharacterTextSplitter
-from langchain_community.document_loaders import TextLoader
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from FlagEmbedding import FlagReranker
 import torch
 from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
@@ -41,14 +33,14 @@ PROMPT_TEMPLATE = ChatPromptTemplate.from_template(
 class ChatPDF:
     def __init__(
         self,
-        # similarity_model: SimilarityABC = None,
         model_name: str = "mistral:latest",
+        embedding_model_name: str = "BAAI/bge-base-en-v1.5",
         files_path: Union[str, List[str]] = None,
         save_corpus_emb_dir: str = "./corpus_embs/",
         device: str = None,
         chunk_size: int = 250,
         chunk_overlap: int = 0,
-        rerank_model_name_or_path: str = None,
+        rerank_model_name: str = "BAAI/bge-reranker-large",
         enable_history: bool = False,
         num_expand_context_chunk: int = 2,
         similarity_top_k: int = 10,
@@ -59,7 +51,7 @@ class ChatPDF:
             default_device = torch.device(0)
         elif torch.backends.mps.is_available():
             default_device = "mps"
-        self.device = device or default_device
+        self._device = device or default_device
 
         # chunk分割参数验证
         if num_expand_context_chunk > 0 and chunk_overlap > 0:
@@ -70,41 +62,43 @@ class ChatPDF:
             chunk_overlap = 0
 
         # 文本分割
-        self.text_splitter = CharacterTextSplitter(
+        self._text_splitter = CharacterTextSplitter(
             chunk_size=chunk_size, chunk_overlap=chunk_overlap
         )
 
-        # 向量数据库模型
-        self.vectorDB = FaissDB(self.text_splitter, similarity_top_k)
-        if files_path:
-            self.vectorDB.init_files(files_path)
+        # rerank 模型
+        self._rerank_model_name = rerank_model_name
 
-        self.num_expand_context_chunk = num_expand_context_chunk
-        self.rerank_top_k = rerank_top_k
+        # 向量数据库模型
+        self._vectorDB = FaissDB(self._text_splitter, embedding_model_name, self._device, similarity_top_k)
+        # 初始化原始文件
+        if files_path:
+            self._vectorDB.init_files(files_path)
+
+        self._num_expand_context_chunk = num_expand_context_chunk
+        self._rerank_top_k = rerank_top_k
 
         # 历史记录
-        self.history = []
-        self.enable_history = enable_history
+        self._history = []
+        self._enable_history = enable_history
 
         # llm设置
         # See: https://python.langchain.com/docs/integrations/llms/ollama
-        self.model = Ollama(model=model_name)
+        self._model = Ollama(model=model_name)
 
         # 输出格式化
-        self.output_parser = StrOutputParser()
+        self._output_parser = StrOutputParser()
 
-        self.similarity_top_k = similarity_top_k
+        self._similarity_top_k = similarity_top_k
 
 
     """
     获取关联信息的相关度，用于评判召回质量
     https://github.com/FlagOpen/FlagEmbedding/tree/master/FlagEmbedding/reranker
     """
-    def get_reranker_score(self, query: str, reference_results: List[str]) -> List:
-        tokenizer = AutoTokenizer.from_pretrained("BAAI/bge-reranker-large")
-        model = AutoModelForSequenceClassification.from_pretrained(
-            "BAAI/bge-reranker-large"
-        )
+    def _get_reranker_score(self, query: str, reference_results: List[str]) -> List:
+        tokenizer = AutoTokenizer.from_pretrained(self._rerank_model_name)
+        model = AutoModelForSequenceClassification.from_pretrained(self._rerank_model_name)
         model.eval()
 
         pairs = [[query, ref] for ref in reference_results]
@@ -131,7 +125,7 @@ class ChatPDF:
     """
     从向量数据库中获取与query相关联的资料
     """
-    def get_reference_results(self, query: str):
+    def _get_reference_results(self, query: str):
         """
         Get reference results.
             1. Similarity model get similar chunks
@@ -143,14 +137,14 @@ class ChatPDF:
 
         reference_results = []
         # 1. 搜索向量数据库
-        vec_contents = self.vectorDB.similarity_search(query)
+        vec_contents = self._vectorDB.similarity_search(query)
         for doc in vec_contents:
             reference_results.append(doc.page_content)
         logger.info("vec_contents: " + str(reference_results))
 
         # rerank: 对获取的资料进行评估，返回最符合query的topK个
         if reference_results:
-            rerank_scores = self.get_reranker_score(query, reference_results)
+            rerank_scores = self._get_reranker_score(query, reference_results)
             logger.info("reranker scores: " + str(rerank_scores))
 
             # 获取topK个符合条件的chunks
@@ -161,14 +155,21 @@ class ChatPDF:
                     zip(rerank_scores, reference_results),
                     reverse=True,
                 )
-            ][: self.rerank_top_k]
+            ][: self._rerank_top_k]  # 对数据进行切片，只获取前K个
 
+        # 对数据进行处理，增加编号
         reference_results = self._add_source_numbers(reference_results)
-
         return reference_results
+    
+
+    """为参考资料增加索引等信息"""
+    @staticmethod
+    def _add_source_numbers(lst):
+        """Add source numbers to a list of strings."""
+        return [f'[{idx + 1}]\t "{item}"' for idx, item in enumerate(lst)]
+
 
     """一次询问"""
-
     def chat(
         self,
         query: str,
@@ -177,30 +178,25 @@ class ChatPDF:
         temperature: float = 0.7,
     ):
         reference_results = []
-        if not self.enable_history:
-            self.history = []
+        if not self._enable_history:
+            self._history = []
 
         # 1. 检索向量数据库获取信息，并组装prompt
-        reference_results = self.get_reference_results(query)
+        reference_results = self._get_reference_results(query)
         context_str = "\n".join(reference_results)
         logger.info("reference_results: " + str(reference_results))
 
         # 2. llm生成回答
-        chain = PROMPT_TEMPLATE | self.model | self.output_parser
+        chain = PROMPT_TEMPLATE | self._model | self._output_parser
         response = chain.invoke({"context_str": context_str, "query_str": query})
         return response
 
-    """为参考资料增加索引等信息"""
-
-    @staticmethod
-    def _add_source_numbers(lst):
-        """Add source numbers to a list of strings."""
-        return [f'[{idx + 1}]\t "{item}"' for idx, item in enumerate(lst)]
 
 
-file_path = "../test/I_have_a_dream.txt"
+
 
 if __name__ == "__main__":
+    file_path = "../test/I_have_a_dream.txt"
     chatpdf = ChatPDF(files_path=file_path, model_name="mistral:latest", rerank_top_k=4)
 
     print(
