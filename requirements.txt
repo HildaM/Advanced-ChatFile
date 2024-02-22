@@ -1,2 +1,4 @@
 langchain_community
 flashrank
+pytesseract
+python-docx
