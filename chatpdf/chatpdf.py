@@ -67,7 +67,12 @@ class ChatPDF:
         )
 
         # rerank 模型
-        self._rerank_model_name = rerank_model_name
+        if rerank_model_name:
+            self._rerank_tokenizer = AutoTokenizer.from_pretrained(rerank_model_name)
+            self._rerank_model = AutoModelForSequenceClassification.from_pretrained(rerank_model_name)
+            self._rerank_model.to(self._device)
+            self._rerank_model.eval()
+        
 
         # 向量数据库模型
         self._vectorDB = FaissDB(self._text_splitter, embedding_model_name, self._device, similarity_top_k)
@@ -90,36 +95,24 @@ class ChatPDF:
         self._output_parser = StrOutputParser()
 
         self._similarity_top_k = similarity_top_k
-
+    
 
     """
     获取关联信息的相关度，用于评判召回质量
     https://github.com/FlagOpen/FlagEmbedding/tree/master/FlagEmbedding/reranker
     """
-    def _get_reranker_score(self, query: str, reference_results: List[str]) -> List:
-        tokenizer = AutoTokenizer.from_pretrained(self._rerank_model_name)
-        model = AutoModelForSequenceClassification.from_pretrained(self._rerank_model_name)
-        model.eval()
+    def _get_reranker_score(self, query: str, reference_results: List[str]):
+        """Get reranker score."""
+        pairs = []
+        for reference in reference_results:
+            pairs.append([query, reference])
 
-        pairs = [[query, ref] for ref in reference_results]
-        scores = []
         with torch.no_grad():
-            inputs = tokenizer(
-                pairs,
-                padding=True,
-                truncation=True,
-                return_tensors="pt",
-                max_length=512,
-            )
-            scores = (
-                model(**inputs, return_dict=True)
-                .logits.view(
-                    -1,
-                )
-                .float()
-            )
+            inputs = self._rerank_tokenizer(pairs, padding=True, truncation=True, return_tensors='pt', max_length=512)
+            inputs_on_device = {k: v.to(self._rerank_model.device) for k, v in inputs.items()}
+            scores = self._rerank_model(**inputs_on_device, return_dict=True).logits.view(-1, ).float()
 
-        return scores.tolist()
+        return scores
 
 
     """
