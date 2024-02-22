@@ -40,15 +40,18 @@ class FaissDB:
         )
         return embeddings
 
+
     def init_files(self, file_path: str):
         """加载文件"""
         # TODO 此处需要补充“文件类型适配层”，方便适配不同文件的加载
         loader = TextLoader(file_path)
         documents = loader.load()
-        splitter = CharacterTextSplitter(chunk_size=250, chunk_overlap=50)
+        splitter = CharacterTextSplitter(chunk_size=500, chunk_overlap=50)
         documents = splitter.split_documents(documents)
         self.db = FAISS.from_documents(documents, self.embedding_function)
 
+
+    # TODO 不清楚是否删除
     def add_corpus(self, data: Union[str, List[str]]):
         """Load document files."""
         # if isinstance(files, str):
@@ -61,6 +64,7 @@ class FaissDB:
         #     chunks = self._chunk_files(doc_file)
         #     self.db.add_texts(chunks)
 
+    # TODO 不清楚是否删除
     def _chunk_files(self, doc_file: str) -> str:
         if doc_file.endswith(".pdf"):
             corpus = extract.from_pdf(doc_file)

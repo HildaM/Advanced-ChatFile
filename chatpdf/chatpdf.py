@@ -13,9 +13,13 @@ from langchain.retrievers import ContextualCompressionRetriever
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from langchain_community.vectorstores.faiss import FAISS
+from langchain_community.vectorstores.chroma import Chroma
 from langchain.text_splitter import CharacterTextSplitter
 from langchain_community.document_loaders import TextLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
+from FlagEmbedding import FlagReranker
+import torch
+from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
 from langchain.globals import set_debug
 
@@ -38,7 +42,7 @@ class ChatPDF:
     def __init__(
         self,
         # similarity_model: SimilarityABC = None,
-        model_name: str = "lmistral:latest",
+        model_name: str = "mistral:latest",
         files_path: Union[str, List[str]] = None,
         save_corpus_emb_dir: str = "./corpus_embs/",
         device: str = None,
@@ -89,30 +93,44 @@ class ChatPDF:
         # 输出格式化
         self.output_parser = StrOutputParser()
 
-        self.compression_retriever = None
         self.similarity_top_k = similarity_top_k
 
-    """获取关联信息的相关度，用于评判召回质量"""
 
+    """
+    获取关联信息的相关度，用于评判召回质量
+    https://github.com/FlagOpen/FlagEmbedding/tree/master/FlagEmbedding/reranker
+    """
     def get_reranker_score(self, query: str, reference_results: List[str]) -> List:
-        if self.compression_retriever is None:
-            loader = TextLoader(file_path=file_path)
-            document = loader.load()
-            text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=0)
-            docs = text_splitter.split_documents(document)
-            db = FAISS.from_documents(docs, self.vectorDB.embedding_function)
+        tokenizer = AutoTokenizer.from_pretrained("BAAI/bge-reranker-large")
+        model = AutoModelForSequenceClassification.from_pretrained(
+            "BAAI/bge-reranker-large"
+        )
+        model.eval()
 
-            self.compression_retriever = ContextualCompressionRetriever(
-                base_compressor=FlashrankRerank(), base_retriever=db.as_retriever()
+        pairs = [[query, ref] for ref in reference_results]
+        scores = []
+        with torch.no_grad():
+            inputs = tokenizer(
+                pairs,
+                padding=True,
+                truncation=True,
+                return_tensors="pt",
+                max_length=512,
+            )
+            scores = (
+                model(**inputs, return_dict=True)
+                .logits.view(
+                    -1,
+                )
+                .float()
             )
 
-        compressed_docs = self.compression_retriever.get_relevant_documents(query)
-        return [doc.metadata["id"] for doc in compressed_docs]
+        return scores.tolist()
+
 
     """
     从向量数据库中获取与query相关联的资料
     """
-
     def get_reference_results(self, query: str):
         """
         Get reference results.
@@ -128,21 +146,24 @@ class ChatPDF:
         vec_contents = self.vectorDB.similarity_search(query)
         for doc in vec_contents:
             reference_results.append(doc.page_content)
+        logger.info("vec_contents: " + str(reference_results))
 
         # rerank: 对获取的资料进行评估，返回最符合query的topK个
         if reference_results:
             rerank_scores = self.get_reranker_score(query, reference_results)
+            logger.info("reranker scores: " + str(rerank_scores))
 
             # 获取topK个符合条件的chunks
             # 将reference_results, rerank_scores通过zip()进行组合，然后按照rerank进行降序排序，输出前k个数据
             reference_results = [
                 reference
-                for reference, score in sorted(
-                    zip(reference_results, rerank_scores),
-                    key=lambda x: x[1],
+                for score, reference in sorted(
+                    zip(rerank_scores, reference_results),
                     reverse=True,
                 )
             ][: self.rerank_top_k]
+
+        reference_results = self._add_source_numbers(reference_results)
 
         return reference_results
 
@@ -161,7 +182,6 @@ class ChatPDF:
 
         # 1. 检索向量数据库获取信息，并组装prompt
         reference_results = self.get_reference_results(query)
-        reference_results = self._add_source_numbers(reference_results)
         context_str = "\n".join(reference_results)
         logger.info("reference_results: " + str(reference_results))
 
@@ -181,7 +201,7 @@ class ChatPDF:
 file_path = "../test/I_have_a_dream.txt"
 
 if __name__ == "__main__":
-    chatpdf = ChatPDF(files_path=file_path, model_name="mistral:latest")
+    chatpdf = ChatPDF(files_path=file_path, model_name="mistral:latest", rerank_top_k=4)
 
     print(
         chatpdf.chat(
