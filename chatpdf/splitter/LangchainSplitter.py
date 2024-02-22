@@ -1,5 +1,6 @@
 from typing import List
 from langchain.text_splitter import CharacterTextSplitter
+import re
 
 class LangchainSplitter:
     def __init__(self, chunk_size: int = 250, chunk_overlap: int = 50) -> None:
@@ -10,7 +11,7 @@ class LangchainSplitter:
         if self._isHasChinese(text):
             return self._splitChineseText(text)
         else:
-            return self._splitEnglishText(text)
+            return self._split_english_text(text)
         
     def _isHasChinese(self, text: str) -> bool:
         # check if contains chinese characters
@@ -31,7 +32,7 @@ class LangchainSplitter:
         return splitter.split_text(text)
     
     def _splitEnglishText(self, text: str) -> List[str]:
-        sentence_endings = {'\n', '\n\n', '.', '!', '?', ';', '…'}  # 句末标点符号
+        sentence_endings = {'\n', '\n\n', '.', '!', '?', ';', '…'}  # 句末标点符号x
         splitter = CharacterTextSplitter(
             separator=sentence_endings,
             chunk_size=self.chunk_size,
@@ -40,4 +41,23 @@ class LangchainSplitter:
             is_separator_regex=False,
         )
         return splitter.split_text(text)
+    
+
+    def _split_english_text(self, text: str) -> List[str]:
+        # 使用正则表达式按句子分割英文文本
+        sentences = re.split(r'(?<=[.!?])\s+', text[0].replace('\n', ' '))
+        chunks, current_chunk = [], ''
+        for sentence in sentences:
+            if len(current_chunk) + len(sentence) <= self.chunk_size or not current_chunk:
+                current_chunk += (' ' if current_chunk else '') + sentence
+            else:
+                chunks.append(current_chunk)
+                current_chunk = sentence
+        if current_chunk:  # Add the last chunk
+            chunks.append(current_chunk)
+
+        if self.chunk_overlap > 0 and len(chunks) > 1:
+            chunks = self._handle_overlap(chunks)
+
+        return chunks
 
