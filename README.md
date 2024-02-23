@@ -13,3 +13,4 @@ I use Ollama as my LLM backend
 ## TODO
 - [ ] Support Stream output
 - [ ] Add webui for better exprience
+- [ ] Use LLamaIndex framework to refactor
