@@ -14,3 +14,9 @@ if __name__ == "__main__":
     file2 = PROJECT_ROOT + "/README.md"
     chatpdf.add_single_file(file2)
     resp, ref = chatpdf.predict("使用 langchain 实现了什么本地程序？")
+    print(resp, '\n\n', ref)
+
+    # 已有向量数据库，测试是否能够准确召回信息
+    # chatpdf = ChatPDF()
+    # resp, ref = chatpdf.predict("使用 langchain 实现了什么本地程序？")
+    # print(resp, '\n\n', ref)

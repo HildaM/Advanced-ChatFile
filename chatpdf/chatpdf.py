@@ -39,7 +39,7 @@ class ChatPDF:
         model_name: str = "mistral:latest",
         embedding_model_name: str = "BAAI/bge-base-en-v1.5",
         files_path: Union[str, List[str]] = None,
-        save_corpus_emb_dir: str = "./corpus_embs/",
+        refresh_vectordb: bool = True,
         device: str = None,
         chunk_size: int = 250,
         chunk_overlap: int = 0,
@@ -80,8 +80,7 @@ class ChatPDF:
         # 向量数据库模型
         self._vectorDB = ChromaDB(self._text_splitter, embedding_model_name, self._device, similarity_top_k)
         # 初始化原始文件
-        if files_path:
-            self._vectorDB.init_files(files_path)
+        self._vectorDB.init_files(files_path, refresh_vectordb)
 
         self._num_expand_context_chunk = num_expand_context_chunk
         self._rerank_top_k = rerank_top_k

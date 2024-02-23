@@ -160,5 +160,5 @@ cython_debug/
 #.idea/
 
 .VSCodeCounter
-chatpdf/.chroma
 test/
+chatpdf/vectordb/vector_embeddings
