@@ -9,12 +9,12 @@ from langchain_community.llms import Ollama
 from typing import List, Union
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
-from langchain.text_splitter import CharacterTextSplitter
+from langchain.text_splitter import RecursiveCharacterTextSplitter
 import torch
 from transformers import AutoModelForSequenceClassification, AutoTokenizer
+from langchain_core.messages import HumanMessage
 
 from langchain.globals import set_debug
-
 set_debug(True)
 
 
@@ -28,6 +28,9 @@ PROMPT_TEMPLATE = ChatPromptTemplate.from_template(
 {context_str}
 """
 )
+
+SPERATORS = ['.', '!', '?', '。', '！', '？', '…', ';', '；', ':', '：', '”', '’', '）', '】', '》', '」',
+            '』', '〕', '〉', '》', '〗', '〞', '〟', '»', '"', "'", ')', ']', '}']
 
 
 class ChatPDF:
@@ -62,8 +65,8 @@ class ChatPDF:
             chunk_overlap = 0
 
         # 文本分割
-        self._text_splitter = CharacterTextSplitter(
-            chunk_size=chunk_size, chunk_overlap=chunk_overlap
+        self._text_splitter = RecursiveCharacterTextSplitter(
+            chunk_size=chunk_size, chunk_overlap=chunk_overlap, separators=SPERATORS
         )
 
         # rerank 模型
@@ -127,7 +130,6 @@ class ChatPDF:
         :param query:
         :return:
         """
-
         reference_results = []
         # 1. 搜索向量数据库
         vec_contents = self._vectorDB.similarity_search(query)
@@ -159,11 +161,11 @@ class ChatPDF:
     @staticmethod
     def _add_source_numbers(lst):
         """Add source numbers to a list of strings."""
-        return [f'[{idx + 1}]\t "{item}"' for idx, item in enumerate(lst)]
+        return [f'[{idx + 1}]\t"{item}"' for idx, item in enumerate(lst)]
 
 
     """一次询问"""
-    def chat(
+    def predict(
         self,
         query: str,
         max_length: int = 512,
@@ -182,7 +184,9 @@ class ChatPDF:
         # 2. llm生成回答
         chain = PROMPT_TEMPLATE | self._model | self._output_parser
         response = chain.invoke({"context_str": context_str, "query_str": query})
-        return response
+        if self._enable_history:
+            self._history.extend([HumanMessage(content=query), response])
+        return response, context_str
 
 
 
@@ -192,8 +196,5 @@ if __name__ == "__main__":
     file_path = "../test/I_have_a_dream.txt"
     chatpdf = ChatPDF(files_path=file_path, model_name="mistral:latest", rerank_top_k=4)
 
-    print(
-        chatpdf.chat(
-            "what is the dream of Martin Luther King based on the reference data?"
-        )
-    )
+    resp, ref = chatpdf.predict("what is the dream of Martin Luther King based on the reference data?")
+    print(resp, ref)
