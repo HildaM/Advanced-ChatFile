@@ -2,11 +2,8 @@ from langchain_community.vectorstores.chroma import Chroma
 from typing import List
 from langchain.embeddings import HuggingFaceEmbeddings
 from langchain_core.documents import Document
-from file import file
+from chatpdf.vectordb import file
 
-
-# 常量
-DEFAULT_K = 4
 
 
 class ChromaDB:
