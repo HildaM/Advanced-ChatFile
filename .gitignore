@@ -161,4 +161,5 @@ cython_debug/
 
 .VSCodeCounter
 test/
-chatpdf/vectordb/vector_embeddings
+chatfile/vectordb/vector_embeddings
+.DS_Store

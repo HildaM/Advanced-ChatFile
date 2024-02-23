@@ -1,7 +1,3 @@
-"""
-class ChatPDF
-"""
-
 import torch
 from loguru import logger
 from vectordb.chroma import ChromaDB
@@ -33,7 +29,7 @@ SPERATORS = ['.', '!', '?', '。', '！', '？', '…', ';', '；', ':', '：', 
             '』', '〕', '〉', '》', '〗', '〞', '〟', '»', '"', "'", ')', ']', '}']
 
 
-class ChatPDF:
+class ChatFile:
     def __init__(
         self,
         model_name: str = "mistral:latest",

@@ -2,7 +2,7 @@ from langchain_community.vectorstores.chroma import Chroma
 from typing import List
 from langchain.embeddings import HuggingFaceEmbeddings
 from langchain_core.documents import Document
-from chatpdf.vectordb import file
+from chatfile.vectordb import file
 
 import os
 
@@ -42,7 +42,7 @@ class ChromaDB:
 
     # 初始化文件夹其中的数据
     def init_files(self, folder_path: str, refresh: bool):
-        if refresh:
+        if refresh and folder_path:
             """清空原有向量数据库数据"""
             documents = file.load_from_folder(folder_path)
             documents = self.splitter.split_documents(documents)
