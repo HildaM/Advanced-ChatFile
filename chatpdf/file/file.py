@@ -34,7 +34,7 @@ def __get_loader(path: str, type: str):
     
 
 
-def __load_files(path: str):
+def __load_file(path: str):
     file_type = os.path.splitext(path)[1]
     loader = __get_loader(path, file_type)
     if loader is None:
@@ -58,7 +58,7 @@ def load_from_folder(root_path: str):
     documents = []
     for file_path in __get_all_paths(root_path):
         # 根据文件类型选择合适的解析方式，如果文件类型不支持则抛出warning提示
-        docs = __load_files(file_path)
+        docs = __load_file(file_path)
         if docs is None:
             continue
         for doc in docs:
@@ -67,3 +67,7 @@ def load_from_folder(root_path: str):
     return documents
 
 
+# 加载单个文件
+def load_single_file(path: str):
+    return __load_file(path)
+    

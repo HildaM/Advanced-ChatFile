@@ -4,7 +4,7 @@ class ChatPDF
 
 import torch
 from loguru import logger
-from vectordb.chroma import FaissDB
+from vectordb.chroma import ChromaDB
 from langchain_community.llms import Ollama
 from typing import List, Union
 from langchain_core.prompts import ChatPromptTemplate
@@ -78,7 +78,7 @@ class ChatPDF:
         
 
         # 向量数据库模型
-        self._vectorDB = FaissDB(self._text_splitter, embedding_model_name, self._device, similarity_top_k)
+        self._vectorDB = ChromaDB(self._text_splitter, embedding_model_name, self._device, similarity_top_k)
         # 初始化原始文件
         if files_path:
             self._vectorDB.init_files(files_path)
@@ -137,7 +137,7 @@ class ChatPDF:
             reference_results.append(doc.page_content)
         logger.info("vec_contents: " + str(reference_results))
 
-        # rerank: 对获取的资料进行评估，返回最符合query的topK个
+        # 2. rerank: 对获取的资料进行评估，返回最符合query的topK个
         if reference_results:
             rerank_scores = self._get_reranker_score(query, reference_results)
             logger.info("reranker scores: " + str(rerank_scores))
@@ -152,7 +152,7 @@ class ChatPDF:
                 )
             ][: self._rerank_top_k]  # 对数据进行切片，只获取前K个
 
-        # 对数据进行处理，增加编号
+        # 3. 对数据进行处理，增加编号
         reference_results = self._add_source_numbers(reference_results)
         return reference_results
     
@@ -162,6 +162,11 @@ class ChatPDF:
     def _add_source_numbers(lst):
         """Add source numbers to a list of strings."""
         return [f'[{idx + 1}]\t"{item}"' for idx, item in enumerate(lst)]
+    
+
+    """更新文件"""
+    def add_single_file(self, path: str):
+        self._vectorDB.add_single_file(path)
 
 
     """一次询问"""
@@ -187,14 +192,3 @@ class ChatPDF:
         if self._enable_history:
             self._history.extend([HumanMessage(content=query), response])
         return response, context_str
-
-
-
-
-
-if __name__ == "__main__":
-    file_path = "../test/I_have_a_dream.txt"
-    chatpdf = ChatPDF(files_path=file_path, model_name="mistral:latest", rerank_top_k=4)
-
-    resp, ref = chatpdf.predict("what is the dream of Martin Luther King based on the reference data?")
-    print(resp, ref)
