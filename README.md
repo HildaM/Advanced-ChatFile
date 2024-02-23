@@ -1,3 +1,5 @@
-# ChatPDF-langchain
+# ChatFile-langchain
 
-这是使用 langchain 实现的本地 ChatPDF 程序。
+The ChatFile project can parse various file types and use a vector database to retrieve questions, which are then answered by an LLM (Large Language Model).
+
+I use Ollama as my LLM backend
