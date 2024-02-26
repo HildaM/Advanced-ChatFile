@@ -1,0 +1,37 @@
+import os
+
+# LLM Settings
+LLM_MODEL_NAME="mistral:latest"
+ENABLE_HISTROY=True
+
+# Embedding Settings
+EMBEDDING_MODEL_NAME="BAAI/bge-base-en-v1.5"
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+EMBEDDING_FILE_PATH=PROJECT_ROOT+"/test"
+REFRESH_VECTORDB=True
+DEVICE="cpu"
+CHUNK_SIZE=300
+CHUNK_OVERLAP=50
+
+# Reranker Settings
+RERANK_MODEL_NAME="BAAI/bge-reranker-large"
+SIMILARITY_TOP_K=10
+RERANK_TOP_K=3
+
+# History Memory Settings
+MEMORY_CONNECTION_STRING: str = None
+MEMORY_DATABASE_NAME: str = None
+MEMORY_COLLECTION_NAME: str = None
+SESSION_ID: str = None
+MONGO_USERNAME: str = None
+MONGO_PASSWORD: str = None
+MONGO_CLUSTER: str = None
+MEMORY_WINDOW_SIZE: int = 5
+MONGO_DATABASE = "MONGO_DATABASE"
+MONGO_COLLECTION = "MONGO_COLLECTION"
+MONGO_CONNECTION_STRING = "MONGO_CONNECTION_STRING"
+
+# Other Settings
+AI_PREFIX = "AI_PREFIX"
+HUMAN_PREFIX = "HUMAN_PREFIX"
+MEMORY_KEY = "MEMORY_KEY"
