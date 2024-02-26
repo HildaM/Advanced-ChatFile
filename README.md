@@ -2,7 +2,7 @@
 
 The ChatFile project can parse various file types and use a vector database to retrieve questions, which are then answered by an LLM (Large Language Model).
 
-I use Ollama as my LLM backend
+I use Ollama as my LLM interface.
 
 ## Feature
 0. Ollama is the LLM interface! But you can switch to OpenAI

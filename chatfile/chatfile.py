@@ -7,23 +7,27 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 import torch
+import random
 from transformers import AutoModelForSequenceClassification, AutoTokenizer
-from langchain.memory import ConversationBufferWindowMemory
+from memory.bast_memory import BaseMemory
+from common.entity import Message
 
+
+# 设置 Langchain Debug 模式
 from langchain.globals import set_debug
 set_debug(True)
 
 PROMPT_TEMPLATE = ChatPromptTemplate.from_template(
 """
-现在有一个问题需要你来解决,你需要借鉴`参考信息`和`上一次的对话信息`,回答这个问题: {query_str}?
-先基于你自己的知识给出答案,然后再基于以下已知信息,简洁和专业地回答,同时提供相关依据来佐证自己的观点.
+你是一个善于分析问题,拥有严谨推理能力的助理,你需要参考"参考信息"和"上一次的对话信息",回答: "{query_str}" ?
+这个问题需要你先基于你自己的知识做出初步的判断,然后再基于以下已知信息,对比分析并得出答案,同时提供相关依据来佐证自己的观点.
 如果无法从中得到答案,请说 "根据已知信息无法回答该问题" 或 "没有提供足够的相关信息",不允许在答案中添加编造成分.
 
-`参考信息`: {context_str} . 保持对`参考信息`的辩证思考:如果`参考信息`与问题没有关联,请忽视它直接丢弃,同时不要在回答中提起它,也不要让我知道.
+"参考信息": {context_str} . 必须保持对"参考信息"的辩证思考:如果"参考信息"与问题没有关联,请忽视它直接丢弃,同时不要在回答中提起它,也不要让我知道.
 
-`上一次的对话消息`: {chat_history} . 保持对`上一次的对话消息`的辩证思考:如果`上一次对话的信息`与问题没有关联,请忽视它直接丢弃,同时不要在回答中提起它,也不要让我知道.
+"上一次的对话消息": {chat_history} . 必须保持对"上一次的对话消息"的辩证思考:如果"上一次对话的信息"与问题没有关联,请忽视它直接丢弃,同时不要在回答中提起它,也不要让我知道.
 
-请综合'问题'与'参考信息'的语言种类,作为你回答问题的语言,不要回答与 '{query_str}' 无关的内容!
+请综合'问题'与'参考信息'的语言种类,作为你回答问题的语言,不要回答与 "{query_str}" 无关的内容!
 
 Let's think step by step, take a deep breath.
 """
@@ -33,6 +37,7 @@ Let's think step by step, take a deep breath.
 
 SPERATORS = ['.', '!', '?', '。', '！', '？', '…', ';', '；', ':', '：', '”', '’', '）', '】', '》', '」',
             '』', '〕', '〉', '》', '〗', '〞', '〟', '»', '"', "'", ')', ']', '}']
+
 
 
 class ChatFile:
@@ -78,8 +83,12 @@ class ChatFile:
         # Reranker 设置
         self._rerank_top_k = rerank_top_k
 
+        # RAG 设置
+        self._similarity_top_k = similarity_top_k
+
         # 历史记录
-        self._history = ConversationBufferWindowMemory(k=10)
+        # self._history = ConversationBufferWindowMemory(k=10)
+        self._memory = BaseMemory()
         self._enable_history = enable_history
 
         # llm设置
@@ -89,8 +98,12 @@ class ChatFile:
         # 输出格式化
         self._output_parser = StrOutputParser()
 
-        self._similarity_top_k = similarity_top_k
+        # Other Settings
+        self._conversating_id = self.create_conversation_id()
     
+    @staticmethod
+    def create_conversation_id():
+        return str(random.randint(100000000, 999999999))
 
     """
     获取关联信息的相关度，用于评判召回质量
@@ -178,9 +191,12 @@ class ChatFile:
         # 2. llm生成回答
         chain = PROMPT_TEMPLATE | self._model | self._output_parser
         if self._enable_history:
-            response = chain.invoke({"context_str": context_str, "query_str": query, "chat_history": self._history.load_memory_variables({})})
-            self._history.save_context({"input": query}, {"output": response})
+            # response = chain.invoke({"context_str": context_str, "query_str": query, "chat_history": self._history.load_memory_variables({})})
+            # self._history.save_context({"input": query}, {"output": response})
+            response = chain.invoke({"context_str": context_str, "query_str": query, "chat_history": self._memory.load_history(self._conversating_id)})
+            self._memory.add_history(self._conversating_id, Message(human_req=query, ai_resp=response))
         else:
             response = chain.invoke({"context_str": context_str, "query_str": query})
+            
         
         return response, context_str
