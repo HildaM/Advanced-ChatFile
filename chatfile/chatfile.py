@@ -8,22 +8,28 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 import torch
 from transformers import AutoModelForSequenceClassification, AutoTokenizer
-from langchain_core.messages import HumanMessage
+from langchain.memory import ConversationBufferWindowMemory
 
 from langchain.globals import set_debug
 set_debug(True)
 
-
 PROMPT_TEMPLATE = ChatPromptTemplate.from_template(
-    """基于以下已知信息，简洁和专业的来回答用户的问题,同时提供相关文档依据来佐证自己的观点。如果无法从中得到答案，请说 "根据已知信息无法回答该问题" 或 "没有提供足够的相关信息"，不允许在答案中添加编造成分，答案请根据“参考信息”的语言进行选择。
+"""
+现在有一个问题需要你来解决,你需要借鉴`参考信息`和`上一次的对话信息`,回答这个问题: {query_str}?
+先基于你自己的知识给出答案,然后再基于以下已知信息,简洁和专业地回答,同时提供相关依据来佐证自己的观点.
+如果无法从中得到答案,请说 "根据已知信息无法回答该问题" 或 "没有提供足够的相关信息",不允许在答案中添加编造成分.
 
-问题:
-{query_str}
+`参考信息`: {context_str} . 保持对`参考信息`的辩证思考:如果`参考信息`与问题没有关联,请忽视它直接丢弃,同时不要在回答中提起它,也不要让我知道.
 
-参考信息:
-{context_str}
+`上一次的对话消息`: {chat_history} . 保持对`上一次的对话消息`的辩证思考:如果`上一次对话的信息`与问题没有关联,请忽视它直接丢弃,同时不要在回答中提起它,也不要让我知道.
+
+请综合'问题'与'参考信息'的语言种类,作为你回答问题的语言,不要回答与 '{query_str}' 无关的内容!
+
+Let's think step by step, take a deep breath.
 """
 )
+
+
 
 SPERATORS = ['.', '!', '?', '。', '！', '？', '…', ';', '；', ':', '：', '”', '’', '）', '】', '》', '」',
             '』', '〕', '〉', '》', '〗', '〞', '〟', '»', '"', "'", ')', ']', '}']
@@ -40,7 +46,7 @@ class ChatFile:
         chunk_size: int = 250,
         chunk_overlap: int = 0,
         rerank_model_name: str = "BAAI/bge-reranker-large",
-        enable_history: bool = False,
+        enable_history: bool = True,
         num_expand_context_chunk: int = 2,
         similarity_top_k: int = 10,
         rerank_top_k: int = 3,
@@ -82,7 +88,7 @@ class ChatFile:
         self._rerank_top_k = rerank_top_k
 
         # 历史记录
-        self._history = []
+        self._history = ConversationBufferWindowMemory(k=10)
         self._enable_history = enable_history
 
         # llm设置
@@ -174,7 +180,7 @@ class ChatFile:
     ):
         reference_results = []
         if not self._enable_history:
-            self._history = []
+            self._history = ConversationBufferWindowMemory(k=10, return_messages=True)
 
         # 1. 检索向量数据库获取信息，并组装prompt
         reference_results = self._get_reference_results(query)
@@ -183,7 +189,11 @@ class ChatFile:
 
         # 2. llm生成回答
         chain = PROMPT_TEMPLATE | self._model | self._output_parser
-        response = chain.invoke({"context_str": context_str, "query_str": query})
+        if not self._enable_history:
+            response = chain.invoke({"context_str": context_str, "query_str": query})
+        response = chain.invoke({"context_str": context_str, "query_str": query, "chat_history": self._history.load_memory_variables({})})
+
         if self._enable_history:
-            self._history.extend([HumanMessage(content=query), response])
+            self._history.save_context({"input": query}, {"output": response})
+            # self._history.extend([HumanMessage(content=query), response])
         return response, context_str
