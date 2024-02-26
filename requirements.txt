@@ -3,3 +3,4 @@ flashrank
 pytesseract
 python-docx
 FlagEmbedding
+python-dotenv

@@ -47,7 +47,6 @@ class ChatFile:
         chunk_overlap: int = 0,
         rerank_model_name: str = "BAAI/bge-reranker-large",
         enable_history: bool = True,
-        num_expand_context_chunk: int = 2,
         similarity_top_k: int = 10,
         rerank_top_k: int = 3,
     ):
@@ -57,14 +56,6 @@ class ChatFile:
         elif torch.backends.mps.is_available():
             default_device = "mps"
         self._device = device or default_device
-
-        # chunk分割参数验证
-        if num_expand_context_chunk > 0 and chunk_overlap > 0:
-            logger.warning(
-                f" 'num_expand_context_chunk' and 'chunk_overlap' cannot both be greater than zero. "
-                f" 'chunk_overlap' has been set to zero by default."
-            )
-            chunk_overlap = 0
 
         # 文本分割
         self._text_splitter = RecursiveCharacterTextSplitter(
@@ -83,8 +74,8 @@ class ChatFile:
         self._vectorDB = ChromaDB(self._text_splitter, embedding_model_name, self._device, similarity_top_k)
         # 初始化原始文件
         self._vectorDB.init_files(files_path, refresh_vectordb)
-
-        self._num_expand_context_chunk = num_expand_context_chunk
+        
+        # Reranker 设置
         self._rerank_top_k = rerank_top_k
 
         # 历史记录
