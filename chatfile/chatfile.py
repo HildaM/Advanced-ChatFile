@@ -179,9 +179,6 @@ class ChatFile:
         temperature: float = 0.7,
     ):
         reference_results = []
-        if not self._enable_history:
-            self._history = ConversationBufferWindowMemory(k=10, return_messages=True)
-
         # 1. 检索向量数据库获取信息，并组装prompt
         reference_results = self._get_reference_results(query)
         context_str = "\n".join(reference_results)
@@ -189,11 +186,10 @@ class ChatFile:
 
         # 2. llm生成回答
         chain = PROMPT_TEMPLATE | self._model | self._output_parser
-        if not self._enable_history:
-            response = chain.invoke({"context_str": context_str, "query_str": query})
-        response = chain.invoke({"context_str": context_str, "query_str": query, "chat_history": self._history.load_memory_variables({})})
-
         if self._enable_history:
+            response = chain.invoke({"context_str": context_str, "query_str": query, "chat_history": self._history.load_memory_variables({})})
             self._history.save_context({"input": query}, {"output": response})
-            # self._history.extend([HumanMessage(content=query), response])
+        else:
+            response = chain.invoke({"context_str": context_str, "query_str": query})
+        
         return response, context_str
