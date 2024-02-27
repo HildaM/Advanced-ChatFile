@@ -87,9 +87,11 @@ class ChatFile:
         self._similarity_top_k = similarity_top_k
 
         # 历史记录
-        # self._history = ConversationBufferWindowMemory(k=10)
         self._memory = BaseMemory()
         self._enable_history = enable_history
+        if enable_history:
+            self._conversating_id = self.create_conversation_id()
+            self._memory.load_history(self._conversating_id)
 
         # llm设置
         # See: https://python.langchain.com/docs/integrations/llms/ollama
@@ -98,8 +100,6 @@ class ChatFile:
         # 输出格式化
         self._output_parser = StrOutputParser()
 
-        # Other Settings
-        self._conversating_id = self.create_conversation_id()
     
     @staticmethod
     def create_conversation_id():
@@ -191,12 +191,12 @@ class ChatFile:
         # 2. llm生成回答
         chain = PROMPT_TEMPLATE | self._model | self._output_parser
         if self._enable_history:
-            # response = chain.invoke({"context_str": context_str, "query_str": query, "chat_history": self._history.load_memory_variables({})})
-            # self._history.save_context({"input": query}, {"output": response})
-            response = chain.invoke({"context_str": context_str, "query_str": query, "chat_history": self._memory.load_history(self._conversating_id)})
-            self._memory.add_history(self._conversating_id, Message(human_req=query, ai_resp=response))
+            response = chain.invoke({"context_str": context_str, "query_str": query, "chat_history": self._memory.get_latest()})
+            self._memory.add_history(Message(question=query, answer=response))
         else:
             response = chain.invoke({"context_str": context_str, "query_str": query})
             
-        
+        # TODO 临时测试历史聊天记录保存
+        self._memory.save_history()
+
         return response, context_str

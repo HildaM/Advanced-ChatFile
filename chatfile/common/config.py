@@ -10,9 +10,9 @@ class Singleton(type):
 
     # 重写了 __call__ 方法，该方法在类实例化时被调用。
     def __call__(cls, *args, **kwargs):
-        if cls not in cls._instances:
-            cls._instances[cls] = super(Singleton, cls).__call__(*args, **kwargs)
-        return cls._instances[cls]
+        if cls not in cls._instance:
+            cls._instance[cls] = super(Singleton, cls).__call__(*args, **kwargs)
+        return cls._instance[cls]
     
 class BaseSingleton(metaclass=Singleton):
     pass
@@ -45,6 +45,7 @@ class Config(BaseObject):
         similarity_top_k: int = 10,
         rerank_top_k: int = 3,
         # History Memory Settings
+        latest_history_nums: int = 3,
         memory_connection_string: str = None,
         memory_database_name: str = None,
         memory_collection_name: str = None,
@@ -72,17 +73,19 @@ class Config(BaseObject):
         self.similarity_top_k = similarity_top_k if similarity_top_k is not None else os.getenv(SIMILARITY_TOP_K)
         self.rerank_top_k = rerank_top_k if rerank_top_k is not None else os.getenv(RERANK_TOP_K)
         # History Memory Settings
+        self.latest_history_nums = latest_history_nums if latest_history_nums is not None else os.getenv(LATEST_HISTORY_NUMS)
+        # MongoDB Settings
+        self.mongo_username = mongo_username if mongo_username is not None else os.getenv(MONGO_USERNAME)
+        self.mongo_password = mongo_password if mongo_password is not None else os.getenv(MONGO_PASSWORD)
+        self.mongo_cluster = mongo_cluster if mongo_cluster is not None else os.getenv(MONGO_CLUSTER)
         self.memory_database_name = memory_database_name if memory_database_name is not None \
-            else os.getenv(MONGO_DATABASE, "langchain_bot")
+            else os.getenv(MONGO_DATABASE, "chatfile_history")
         self.memory_collection_name = memory_collection_name if memory_collection_name is not None \
-            else os.getenv(MONGO_COLLECTION, "chatbot")
+            else os.getenv(MONGO_COLLECTION, "chatfile_history")
         self.memory_connection_string = memory_connection_string if memory_connection_string is not None \
             else os.getenv(MONGO_CONNECTION_STRING,
                            f"mongodb+srv://{self.mongo_username}:{self.mongo_password}@{self.mongo_cluster}.xnkswcg.mongodb.net")
         self.session_id = session_id if session_id is not None else os.getenv(SESSION_ID)
-        self.mongo_username = mongo_username if mongo_username is not None else os.getenv(MONGO_USERNAME)
-        self.mongo_password = mongo_password if mongo_password is not None else os.getenv(MONGO_PASSWORD)
-        self.mongo_cluster = mongo_cluster if mongo_cluster is not None else os.getenv(MONGO_CLUSTER)
         self.memory_window_size = memory_window_size if memory_window_size is not None else os.getenv(MEMORY_WINDOW_SIZE)
         # Other Settings
         self.ai_prefix = os.getenv(AI_PREFIX, "AI")

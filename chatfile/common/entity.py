@@ -1,4 +1,7 @@
 class Message:
-    def __init__(self, human_req: str, ai_resp: str):
-        self.human_req = human_req
-        self.ai_resp = ai_resp
+    def __init__(self, question: str, answer: str):
+        self.question = question
+        self.answer = answer
+
+    def __str__(self) -> str:
+        return f"Question: {self.question}, Answer: {self.answer}"
