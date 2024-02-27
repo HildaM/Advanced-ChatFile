@@ -9,8 +9,10 @@ I use Ollama as my LLM interface.
 1. Support retrivel Rerank. Based on [BGE Reranker](https://github.com/FlagOpen/FlagEmbedding/tree/master/FlagEmbedding/reranker)
 2. Support upload folder. You don't need to process file by file
 3. Use Chroma as the local vectorDB
+4. Support chat history load and store as JSON file
 
 ## TODO
+- [ ] Support other chat history load and store, especially support similary search for chat history
 - [ ] Support Stream output
 - [ ] Add webui for better exprience
 - [ ] Use LLamaIndex framework to refactor
