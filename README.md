@@ -4,6 +4,14 @@ The ChatFile project can parse various file types and use a vector database to r
 
 I use Ollama as my LLM interface.
 
+## NOTE!
+
+This is project is still programing, it may have some bug and problem!
+
+If you want to study the code or run the project, you just need place file data into 'test' folder for vectorDB store.
+
+And then, run `python main.py`. You will see result in your terminal if there is no problem. (I will add webui sooner or later....)
+
 ## Feature
 0. Ollama is the LLM interface! But you can switch to OpenAI
 1. Support retrivel Rerank. Based on [BGE Reranker](https://github.com/FlagOpen/FlagEmbedding/tree/master/FlagEmbedding/reranker)
