@@ -1,11 +1,10 @@
 from langchain.memory import ChatMessageHistory, ConversationBufferWindowMemory
 from typing import Optional
 from common.entity import Message
+from langchain_core.messages import ChatMessage
 
 
 class BaseMemory:
-    # __slots__ = ["_base_memory", "_memory"] 
-
     def __init__(
             self,
             chat_history_class=ChatMessageHistory,
@@ -22,7 +21,7 @@ class BaseMemory:
         self._chat_history_kwargs = chat_history_kwargs or {}
         self._base_memory_class = chat_history_class
         self._memory = memory_class(**self.params)
-        self._user_memory = dict()
+        self._user_memory_dict = dict()
 
     @property
     def params(self):
@@ -36,6 +35,17 @@ class BaseMemory:
             "k": 3
         }
     
+    
+    # @property
+    # def memory(self):
+    #     return self._memory
+    
+    # @property
+    # def user_memory(self):
+    #     return self._user_memory
+    
+
+
     # @property
     # def memory(self):
     #     return self._memory
@@ -47,23 +57,23 @@ class BaseMemory:
 
     """清空历史"""
     def clear(self, conversation_id: str):
-        if conversation_id in self._user_memory:
-            memory = self._user_memory.pop(conversation_id)
+        if conversation_id in self._user_memory_dict:
+            memory = self._user_memory_dict.pop(conversation_id)
             memory.clear()
 
     """加载历史"""
     def load_history(self, conversation_id: str) -> str:
-        if conversation_id not in self._user_memory:
+        if conversation_id not in self._user_memory_dict:
             # 初始化，并返回空值
             memory = self._base_memory_class(**self._chat_history_kwargs)
             self._memory.chat_memory = memory
-            self._user_memory[conversation_id] = memory
+            self._user_memory_dict[conversation_id] = memory
             return ""
         
         self._memory.chat_memory = self._user_memory.get(conversation_id)
-        return self._memory.load_memory_variables({})["history"]
+        return self._memory.load_memory_variables({})["History"]
     
     """增加历史信息"""
     def add_history(self, conversation_id: str, message: Message):
-        memory = self._user_memory[conversation_id]
-        memory.add_message({"Question": message.human_req, "Answer": message.ai_resp})
+        memory = self._user_memory_dict[conversation_id]
+        memory.add_message(ChatMessage(content=[{"Question": message.human_req, "Answer": message.ai_resp}], role="User"))
