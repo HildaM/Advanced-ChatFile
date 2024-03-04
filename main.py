@@ -8,13 +8,13 @@ if __name__ == "__main__":
     chatfile = ChatFile(files_path=file_path, rerank_top_k=3)
 
     resp, ref = chatfile.predict("What I use as the LLM interface?")
-    print(resp, '\n\n', ref)
+    print(resp, '\n\n Reference: \n', ref)
 
     # 更新文件
     file2 = PROJECT_ROOT + "/README.md"
     chatfile.add_single_file(file2)
     resp, ref = chatfile.predict("What I use as the LLM interface?")
-    print(resp, '\n\n', ref)
+    print(resp, '\n\n Reference: \n', ref)
 
     # 已有向量数据库，测试是否能够准确召回信息
     # chatfile = ChatFile()

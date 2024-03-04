@@ -14,13 +14,8 @@ class LLMAdapter:
         prefix = self.model_name.upper().split(":")[0] + "_"    # 适配入参携带版本号的情况。如ollama:latest
         # 遍历环境变量，加载与模型相关的配置
         for key in os.environ:
-            print("os.environ: " + key)
             if key.startswith(prefix):
                 self.args[key.lower()] = os.getenv(key)
-        
-        # debug
-        for arg in self.args:
-            print(arg)
 
     # 加载模型
     def build(self):
