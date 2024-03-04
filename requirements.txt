@@ -5,3 +5,8 @@ python-docx
 FlagEmbedding
 python-dotenv
 pymongo
+python-dotenv
+loguru
+chromadb
+unstructured
+markdown

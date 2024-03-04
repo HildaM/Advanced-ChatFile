@@ -2,6 +2,7 @@ from typing import Union, List
 from dotenv import load_dotenv
 import os
 from .default_configs import *
+from llm.llm_adapter import LLMAdapter
 
 
 """单例模式，确保全局只有一个Config"""
@@ -31,7 +32,7 @@ class Config(BaseObject):
     def __init__(
         self,
         # Ollama LLM Settings
-        llm_model_name: str = "mistral:latest",
+        llm_name: str = "openai",
         enable_history: bool = True,
         # Embedding Model Settings
         embedding_model_name: str = "BAAI/bge-base-en-v1.5",
@@ -58,9 +59,12 @@ class Config(BaseObject):
         super().__init__()
         # 加载配置文件
         load_dotenv('.env')
-        # Ollama LLM Settings
-        self.llm_model_name = llm_model_name if llm_model_name is not None else os.getenv(LLM_MODEL_NAME)
+
+        # LLM Settings
+        self.llm_name = llm_name if llm_name is not None else os.getenv(LLM_NAME)
+        self.llm_model = LLMAdapter(self.llm_name).build()
         self.enable_history = enable_history if enable_history is not None else os.getenv(ENABLE_HISTROY)
+
         # Embedding Model Settings
         self.embedding_model_name = embedding_model_name if embedding_model_name is not None else os.getenv(EMBEDDING_MODEL_NAME)
         self.embedding_files_path = embedding_files_path if embedding_files_path is not None else os.getenv(EMBEDDING_FILE_PATH)
@@ -68,12 +72,15 @@ class Config(BaseObject):
         self.device = device if device is not None else os.getenv(DEVICE)
         self.chunk_size = chunk_size if chunk_size is not None else os.getenv(CHUNK_SIZE)
         self.chunk_overlap = chunk_overlap if chunk_overlap is not None else os.getenv(CHUNK_OVERLAP)
+
         # Reranker Settings
         self.rerank_model_name = rerank_model_name if rerank_model_name is not None else os.getenv(RERANK_MODEL_NAME)
         self.similarity_top_k = similarity_top_k if similarity_top_k is not None else os.getenv(SIMILARITY_TOP_K)
         self.rerank_top_k = rerank_top_k if rerank_top_k is not None else os.getenv(RERANK_TOP_K)
+
         # History Memory Settings
         self.latest_history_nums = latest_history_nums if latest_history_nums is not None else os.getenv(LATEST_HISTORY_NUMS)
+
         # MongoDB Settings
         self.mongo_username = mongo_username if mongo_username is not None else os.getenv(MONGO_USERNAME)
         self.mongo_password = mongo_password if mongo_password is not None else os.getenv(MONGO_PASSWORD)
@@ -87,6 +94,7 @@ class Config(BaseObject):
                            f"mongodb+srv://{self.mongo_username}:{self.mongo_password}@{self.mongo_cluster}.xnkswcg.mongodb.net")
         self.session_id = session_id if session_id is not None else os.getenv(SESSION_ID)
         self.memory_window_size = memory_window_size if memory_window_size is not None else os.getenv(MEMORY_WINDOW_SIZE)
+
         # Other Settings
         self.ai_prefix = os.getenv(AI_PREFIX, "AI")
         self.human_prefix = os.getenv(HUMAN_PREFIX, "Human")

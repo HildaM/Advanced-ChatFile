@@ -163,3 +163,4 @@ cython_debug/
 test/
 chatfile/vectordb/vector_embeddings
 .DS_Store
+.env

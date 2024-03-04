@@ -11,6 +11,7 @@ import random
 from transformers import AutoModelForSequenceClassification, AutoTokenizer
 from memory.bast_memory import BaseMemory
 from common.entity import Message
+from common.config import Config
 
 
 # 设置 Langchain Debug 模式
@@ -43,7 +44,7 @@ SPERATORS = ['.', '!', '?', '。', '！', '？', '…', ';', '；', ':', '：', 
 class ChatFile:
     def __init__(
         self,
-        model_name: str = "mistral:latest",
+        config: Config = None,
         embedding_model_name: str = "BAAI/bge-base-en-v1.5",
         files_path: Union[str, List[str]] = None,
         refresh_vectordb: bool = True,
@@ -55,6 +56,9 @@ class ChatFile:
         similarity_top_k: int = 10,
         rerank_top_k: int = 3,
     ):
+        # 加载配置
+        self._config = config if config is not None else Config()
+
         # 判断设备
         if torch.cuda.is_available():
             default_device = torch.device(0)
@@ -95,7 +99,8 @@ class ChatFile:
 
         # llm设置
         # See: https://python.langchain.com/docs/integrations/llms/ollama
-        self._model = Ollama(model=model_name)
+        # self._model = Ollama(model=model_name)
+        self._model = self._config.llm_model
 
         # 输出格式化
         self._output_parser = StrOutputParser()
