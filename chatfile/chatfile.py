@@ -45,16 +45,7 @@ class ChatFile:
     def __init__(
         self,
         config: Config = None,
-        embedding_model_name: str = "BAAI/bge-base-en-v1.5",
         files_path: Union[str, List[str]] = None,
-        refresh_vectordb: bool = True,
-        device: str = None,
-        chunk_size: int = 250,
-        chunk_overlap: int = 0,
-        rerank_model_name: str = "BAAI/bge-reranker-large",
-        enable_history: bool = True,
-        similarity_top_k: int = 10,
-        rerank_top_k: int = 3,
     ):
         # 加载配置
         self._config = config if config is not None else Config()
@@ -64,36 +55,36 @@ class ChatFile:
             default_device = torch.device(0)
         elif torch.backends.mps.is_available():
             default_device = "mps"
-        self._device = device or default_device
+        self._device = self._config.device or default_device
 
         # 文本分割
         self._text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=chunk_size, chunk_overlap=chunk_overlap, separators=SPERATORS
+            chunk_size=self._config.chunk_size, chunk_overlap=self._config.chunk_overlap, separators=SPERATORS
         )
 
-        # rerank 模型
-        if rerank_model_name:
-            self._rerank_tokenizer = AutoTokenizer.from_pretrained(rerank_model_name)
-            self._rerank_model = AutoModelForSequenceClassification.from_pretrained(rerank_model_name)
-            self._rerank_model.to(self._device)
-            self._rerank_model.eval()
+        # rerank 模型    
+        rerank_model_name = self._config.rerank_model_name
+        self._rerank_tokenizer = AutoTokenizer.from_pretrained(rerank_model_name)
+        self._rerank_model = AutoModelForSequenceClassification.from_pretrained(rerank_model_name)
+        self._rerank_model.to(self._device)
+        self._rerank_model.eval()
         
 
         # 向量数据库模型
-        self._vectorDB = ChromaDB(self._text_splitter, embedding_model_name, self._device, similarity_top_k)
+        self._vectorDB = ChromaDB(self._text_splitter, self._config.embedding_model_name, self._device, self._config.similarity_top_k)
         # 初始化原始文件
-        self._vectorDB.init_files(files_path, refresh_vectordb)
+        self._vectorDB.init_files(files_path, self._config.refresh_vectordb)
         
         # Reranker 设置
-        self._rerank_top_k = rerank_top_k
+        self._rerank_top_k = self._config.rerank_top_k
 
         # RAG 设置
-        self._similarity_top_k = similarity_top_k
+        self._similarity_top_k = self._config.similarity_top_k
 
         # 历史记录
         self._memory = BaseMemory()
-        self._enable_history = enable_history
-        if enable_history:
+        self._enable_history = self._config.enable_history
+        if self._enable_history:
             self._conversating_id = self.create_conversation_id()
             self._memory.load_history(self._conversating_id)
 
