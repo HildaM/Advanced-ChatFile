@@ -60,8 +60,8 @@ class BaseMemory:
     """更新本地历史数据存档"""
     def save_history(self):
         data = [{"Question": msg.question, "Answer": msg.answer} for msg in self._messages]
-        with open(self._filepath, 'w') as file:
-            json.dump(data, file, indent=3, ensure_ascii=False) # ensure_ascii=False 保证中文不会出现乱码
+        with open(self._filepath, 'w', encoding='utf-8') as file:   # 指定文件编码为UTF-8
+            json.dump(data, file, indent=3, ensure_ascii=False)     # ensure_ascii=False 保证中文不会出现乱码
 
     
     """获取最后k个历史记录"""
