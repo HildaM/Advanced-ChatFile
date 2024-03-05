@@ -10,3 +10,4 @@ loguru
 chromadb
 unstructured
 markdown
+transformer

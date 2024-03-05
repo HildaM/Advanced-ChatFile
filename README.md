@@ -16,6 +16,18 @@ To explore the code or execute the project, simply place your data files into th
 
 Then, run `python main.py`. If everything is set up correctly, you will see the results in your terminal. (A web UI will be introduced in the future.)
 
+### Get Started
+
+First you should intall conda and create a environment and activate it. Then install pytorch based on [pytorch website](https://pytorch.org/get-started/locally/)
+
+After that, run 
+```
+pip install -r requirements.txt
+```
+
+Finally, run `python main.py`, you will see the test result.
+
+
 ## Advanced-RAG System Component
 
 LLM Processing Layer:
