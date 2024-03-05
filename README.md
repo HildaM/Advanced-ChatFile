@@ -1,8 +1,11 @@
-# ChatFile-langchain
+# Advanced-ChatFile
 
 The ChatFile project can parse various file types and use a vector database to retrieve questions, which are then answered by an LLM (Large Language Model).
 
-I use Ollama as my LLM interface.
+This is project is the pratise of the article [Mastering RAG: How To Architect An Enterprise RAG System](https://www.rungalileo.io/blog/mastering-rag-how-to-architect-an-enterprise-rag-system)
+
+![image](/docs/architecture.png)
+
 
 ## NOTE!
 
