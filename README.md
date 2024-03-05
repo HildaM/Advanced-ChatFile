@@ -25,6 +25,8 @@ After that, run
 pip install -r requirements.txt
 ```
 
+Remember rename `.env.example` to `.env` file name, this is the config file for the project!
+
 Finally, run `python main.py`, you will see the test result.
 
 
