@@ -1,7 +1,6 @@
 import torch
 from loguru import logger
 from vectordb.chroma import ChromaDB
-from langchain_community.llms import Ollama
 from typing import List, Union
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
@@ -12,6 +11,7 @@ from transformers import AutoModelForSequenceClassification, AutoTokenizer
 from memory.bast_memory import BaseMemory
 from common.entity import Message
 from common.config import Config
+from rewriter.query_rewriter import QueryRewriter
 
 
 # 设置 Langchain Debug 模式
@@ -92,6 +92,8 @@ class ChatFile:
         # See: https://python.langchain.com/docs/integrations/llms/ollama
         # self._model = Ollama(model=model_name)
         self._model = self._config.llm_model
+        self._rewriter = QueryRewriter(self._config.llm_name, self._conversating_id, self._memory)
+        
 
         # 输出格式化
         self._output_parser = StrOutputParser()
@@ -158,19 +160,19 @@ class ChatFile:
         return reference_results
     
 
-    """为参考资料增加索引等信息"""
+    """Add Index for Retrieval Data"""
     @staticmethod
     def _add_source_numbers(lst):
         """Add source numbers to a list of strings."""
         return [f'[{idx + 1}]\t"{item}"' for idx, item in enumerate(lst)]
     
 
-    """更新文件"""
+    """Update Single File"""
     def add_single_file(self, path: str):
         self._vectorDB.add_single_file(path)
 
 
-    """一次询问"""
+    """One Query"""
     def predict(
         self,
         query: str,
@@ -178,21 +180,26 @@ class ChatFile:
         context_len: int = 2048,
         temperature: float = 0.7,
     ):
+        # 1. Query Rewriter
+        r_query = self._rewriter.rewrite(query)
+        rewrite_query = r_query if r_query is not None else query
+        # rewrite_query = query
+
         reference_results = []
-        # 1. 检索向量数据库获取信息，并组装prompt
-        reference_results = self._get_reference_results(query)
+        # 2. Retrieval and Reranking
+        reference_results = self._get_reference_results(rewrite_query)
         context_str = "\n".join(reference_results)
         logger.info("reference_results: " + str(reference_results))
 
-        # 2. llm生成回答
+        # 3. LLM generator
         chain = PROMPT_TEMPLATE | self._model | self._output_parser
         if self._enable_history:
-            response = chain.invoke({"context_str": context_str, "query_str": query, "chat_history": self._memory.get_latest()})
-            self._memory.add_history(Message(question=query, answer=response))
+            response = chain.invoke({"context_str": context_str, "query_str": rewrite_query, "chat_history": self._memory.get_latest()})
+            self._memory.add_history(Message(question=rewrite_query, answer=response))
         else:
-            response = chain.invoke({"context_str": context_str, "query_str": query})
+            response = chain.invoke({"context_str": context_str, "query_str": rewrite_query})
             
-        # TODO 临时测试历史聊天记录保存
+        # TODO Test! Save history
         self._memory.save_history()
 
         return response, context_str

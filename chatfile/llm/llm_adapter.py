@@ -21,7 +21,11 @@ class LLMAdapter:
     def build(self):
         match self.model_name:
             case "openai":
-                return OpenAI(openai_api_base=self.args["openai_api_base"], openai_api_key=self.args["openai_api_key"])
+                return OpenAI(
+                    openai_api_base=self.args["openai_api_base"], 
+                    openai_api_key=self.args["openai_api_key"], 
+                    model_name=self.args["openai_model_name"],
+                )
             case "ollama":
                 return Ollama(model=self.args["ollama_model_name"])
             case _:

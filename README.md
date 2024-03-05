@@ -9,7 +9,7 @@ This is project is the pratise of the article [Mastering RAG: How To Architect A
 
 ## NOTE!
 
-This is project is still programing, it may have some bug and problem!
+This is project is still under programing, it may have some bug and problem!
 
 If you want to study the code or run the project, you just need place file data into 'test' folder for vectorDB store.
 
